@@ -40,7 +40,7 @@ dropdown_rect = pygame.Rect(10, 10, 150, 30)
 options = list(ALGORITHMS.keys())
 
 # ---------------- DRAW ----------------
-def draw_grid(start, end, walls, visited, path, algorithm, time_taken):
+def draw_grid(start, end, walls, visited, path, algorithm, time_taken, nodes_visited, path_length):
     screen.fill(BLACK)
 
     # Draw grid
@@ -78,10 +78,18 @@ def draw_grid(start, end, walls, visited, path, algorithm, time_taken):
             option_text = font.render(option, True, BLACK)
             screen.blit(option_text, (rect.x + 5, rect.y + 5))
 
-    # Draw time
+    # Draw metrics
     if time_taken is not None:
-        text2 = font.render(f"Time: {time_taken:.5f}s", True, WHITE)
-        screen.blit(text2, (10, 200))
+        t1 = font.render(f"Time: {time_taken:.5f}s", True, WHITE)
+        screen.blit(t1, (10, 200))
+
+    if nodes_visited is not None:
+        t2 = font.render(f"Nodes Visited: {nodes_visited}", True, WHITE)
+        screen.blit(t2, (10, 230))
+
+    if path_length is not None:
+        t3 = font.render(f"Path Length: {path_length}", True, WHITE)
+        screen.blit(t3, (10, 260))
 
     pygame.display.update()
 
@@ -98,12 +106,17 @@ def main():
     path = []
 
     current_algorithm = "BFS"
+
+    # Metrics
     time_taken = None
+    nodes_visited = None
+    path_length = None
 
     running = True
 
     while running:
-        draw_grid(start, end, walls, visited, path, current_algorithm, time_taken)
+        draw_grid(start, end, walls, visited, path,
+                  current_algorithm, time_taken, nodes_visited, path_length)
 
         for event in pygame.event.get():
 
@@ -114,7 +127,6 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
 
-                # Dropdown click
                 if dropdown_rect.collidepoint(pos):
                     dropdown_open = not dropdown_open
 
@@ -124,7 +136,6 @@ def main():
                         if rect.collidepoint(pos):
                             current_algorithm = option
                             dropdown_open = False
-                            print("Selected:", current_algorithm)
 
                 else:
                     row = pos[1] // CELL_SIZE
@@ -150,22 +161,29 @@ def main():
                             grid[r][c] = 1
 
                         algo_function = ALGORITHMS.get(current_algorithm)
-
                         result = algo_function(start, end, grid) if algo_function else None
 
                         if result:
                             visited.clear()
                             path.clear()
+
+                            # ✅ METRICS CALCULATED HERE (correct place)
+                            nodes_visited = len(result["visited_order"])
+                            path_length = len(result["path"])
                             time_taken = result["time_taken"]
 
+                            # Animate visited
                             for node in result["visited_order"]:
                                 visited.append(node)
-                                draw_grid(start, end, walls, visited, path, current_algorithm, time_taken)
+                                draw_grid(start, end, walls, visited, path,
+                                          current_algorithm, time_taken, nodes_visited, path_length)
                                 pygame.time.delay(15)
 
+                            # Animate path
                             for node in result["path"]:
                                 path.append(node)
-                                draw_grid(start, end, walls, visited, path, current_algorithm, time_taken)
+                                draw_grid(start, end, walls, visited, path,
+                                          current_algorithm, time_taken, nodes_visited, path_length)
                                 pygame.time.delay(40)
 
                         else:
@@ -178,7 +196,11 @@ def main():
                     walls.clear()
                     visited.clear()
                     path.clear()
+
+                    # Reset metrics
                     time_taken = None
+                    nodes_visited = None
+                    path_length = None
 
         pygame.display.update()
 
