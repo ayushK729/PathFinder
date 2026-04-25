@@ -5,6 +5,7 @@ from Algorithms.a_star import astar
 from Algorithms.dijkstra import dijkstra
 from Algorithms.dfs import dfs
 
+# ---------------- ALGORITHMS ----------------
 ALGORITHMS = {
     "BFS": bfs,
     "ASTAR": astar,
@@ -13,194 +14,204 @@ ALGORITHMS = {
 }
 
 # ---------------- SETTINGS ----------------
-WIDTH, HEIGHT = 600, 600
+WIDTH, HEIGHT = 900, 600
 ROWS, COLS = 20, 20
-CELL_SIZE = WIDTH // COLS
+
+# Panels
+panel_count = 1
+panel_algorithms = ["BFS", "ASTAR", "DIJKSTRA"]
+
+# State per panel
+panel_visited = [[] for _ in range(3)]
+panel_path = [[] for _ in range(3)]
+panel_metrics = [None for _ in range(3)]
 
 # Colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GREY = (200, 200, 200)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
-BLUE = (0, 150, 255)
-YELLOW = (255, 255, 0)
-DARK = (50, 50, 50)
-LIGHT_GREY = (170, 170, 170)
+WHITE = (255,255,255)
+BLACK = (0,0,0)
+GREY = (200,200,200)
+GREEN = (0,255,0)
+RED = (255,0,0)
+BLUE = (0,150,255)
+YELLOW = (255,255,0)
+DARK = (50,50,50)
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Pathfinding Visualizer")
+pygame.display.set_caption("Pathfinding Comparison Mode")
 
-font = pygame.font.SysFont(None, 28)
-
-# ---------------- DROPDOWN ----------------
-dropdown_open = False
-dropdown_rect = pygame.Rect(10, 10, 150, 30)
-options = list(ALGORITHMS.keys())
+font = pygame.font.SysFont(None, 24)
 
 # ---------------- DRAW ----------------
-def draw_grid(start, end, walls, visited, path, algorithm, time_taken, nodes_visited, path_length):
+def draw_all_panels(start, end, walls):
     screen.fill(BLACK)
 
-    # Draw grid
-    for row in range(ROWS):
-        for col in range(COLS):
-            rect = pygame.Rect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+    panel_width = WIDTH // panel_count
+    cell_size = panel_width // COLS
 
-            color = WHITE
+    for i in range(panel_count):
+        offset_x = i * panel_width
 
-            if (row, col) == start:
-                color = GREEN
-            elif (row, col) == end:
-                color = RED
-            elif (row, col) in walls:
-                color = DARK
-            elif (row, col) in path:
-                color = YELLOW
-            elif (row, col) in visited:
-                color = BLUE
+        visited = panel_visited[i]
+        path = panel_path[i]
 
-            pygame.draw.rect(screen, color, rect)
-            pygame.draw.rect(screen, GREY, rect, 1)
+        for row in range(ROWS):
+            for col in range(COLS):
+                rect = pygame.Rect(
+                    offset_x + col * cell_size,
+                    row * cell_size,
+                    cell_size,
+                    cell_size
+                )
 
-    # Draw dropdown
-    pygame.draw.rect(screen, LIGHT_GREY, dropdown_rect)
-    text = font.render(algorithm, True, BLACK)
-    screen.blit(text, (dropdown_rect.x + 5, dropdown_rect.y + 5))
+                color = WHITE
 
-    if dropdown_open:
-        for i, option in enumerate(options):
-            rect = pygame.Rect(10, 10 + (i + 1) * 30, 150, 30)
-            pygame.draw.rect(screen, WHITE, rect)
-            pygame.draw.rect(screen, BLACK, rect, 1)
+                if (row, col) == start:
+                    color = GREEN
+                elif (row, col) == end:
+                    color = RED
+                elif (row, col) in walls:
+                    color = DARK
+                elif (row, col) in path:
+                    color = YELLOW
+                elif (row, col) in visited:
+                    color = BLUE
 
-            option_text = font.render(option, True, BLACK)
-            screen.blit(option_text, (rect.x + 5, rect.y + 5))
+                pygame.draw.rect(screen, color, rect)
+                pygame.draw.rect(screen, GREY, rect, 1)
 
-    # Draw metrics
-    if time_taken is not None:
-        t1 = font.render(f"Time: {time_taken:.5f}s", True, WHITE)
-        screen.blit(t1, (10, 200))
+        # Algorithm label
+        screen.blit(font.render(panel_algorithms[i], True, BLACK), (offset_x + 10, 10))
 
-    if nodes_visited is not None:
-        t2 = font.render(f"Nodes Visited: {nodes_visited}", True, WHITE)
-        screen.blit(t2, (10, 230))
+        # Metrics
+        if panel_metrics[i]:
+            m = panel_metrics[i]
+            screen.blit(font.render(f"T: {m['time']:.4f}", True, BLACK), (offset_x + 10, 40))
+            screen.blit(font.render(f"N: {m['nodes']}", True, BLACK), (offset_x + 10, 60))
+            screen.blit(font.render(f"P: {m['path']}", True, BLACK), (offset_x + 10, 80))
 
-    if path_length is not None:
-        t3 = font.render(f"Path Length: {path_length}", True, WHITE)
-        screen.blit(t3, (10, 260))
+    # Separator lines
+    for i in range(1, panel_count):
+        x = i * panel_width
+        pygame.draw.line(screen, WHITE, (x, 0), (x, HEIGHT), 3)
 
     pygame.display.update()
 
 
 # ---------------- MAIN ----------------
 def main():
-    global dropdown_open
+    global panel_count
 
     start = None
     end = None
     walls = set()
 
-    visited = []
-    path = []
-
-    current_algorithm = "BFS"
-
-    # Metrics
-    time_taken = None
-    nodes_visited = None
-    path_length = None
-
     running = True
 
     while running:
-        draw_grid(start, end, walls, visited, path,
-                  current_algorithm, time_taken, nodes_visited, path_length)
+        draw_all_panels(start, end, walls)
 
         for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
                 running = False
 
-            # Mouse click
+            # ---------------- MOUSE ----------------
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
 
-                if dropdown_rect.collidepoint(pos):
-                    dropdown_open = not dropdown_open
+                panel_width = WIDTH // panel_count
+                cell_size = panel_width // COLS
 
-                elif dropdown_open:
-                    for i, option in enumerate(options):
-                        rect = pygame.Rect(10, 10 + (i + 1) * 30, 150, 30)
-                        if rect.collidepoint(pos):
-                            current_algorithm = option
-                            dropdown_open = False
+                row = pos[1] // cell_size
+                col = (pos[0] % panel_width) // cell_size
 
+                if not start:
+                    start = (row, col)
+                elif not end:
+                    end = (row, col)
                 else:
-                    row = pos[1] // CELL_SIZE
-                    col = pos[0] // CELL_SIZE
+                    walls.add((row, col))
 
-                    if not start:
-                        start = (row, col)
-                    elif not end:
-                        end = (row, col)
-                    else:
-                        walls.add((row, col))
-
-            # Keyboard
+            # ---------------- KEYBOARD ----------------
             if event.type == pygame.KEYDOWN:
 
-                # Run algorithm
-                if event.key == pygame.K_SPACE:
+                # Panel modes
+                if event.key == pygame.K_1:
+                    panel_count = 1
+                elif event.key == pygame.K_2:
+                    panel_count = 2
+                elif event.key == pygame.K_3:
+                    panel_count = 3
 
+                # Change algorithms
+                elif event.key == pygame.K_q:
+                    panel_algorithms[0] = "BFS"
+                elif event.key == pygame.K_w:
+                    panel_algorithms[0] = "ASTAR"
+
+                elif event.key == pygame.K_a:
+                    panel_algorithms[1] = "DIJKSTRA"
+                elif event.key == pygame.K_s:
+                    panel_algorithms[1] = "DFS"
+
+                elif event.key == pygame.K_z:
+                    panel_algorithms[2] = "BFS"
+                elif event.key == pygame.K_x:
+                    panel_algorithms[2] = "ASTAR"
+
+                # RUN
+                elif event.key == pygame.K_SPACE:
                     if start and end:
                         grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
 
                         for (r, c) in walls:
                             grid[r][c] = 1
 
-                        algo_function = ALGORITHMS.get(current_algorithm)
-                        result = algo_function(start, end, grid) if algo_function else None
+                        results = []
 
-                        if result:
-                            visited.clear()
-                            path.clear()
+                        # Run all panels
+                        for i in range(panel_count):
+                            algo = ALGORITHMS[panel_algorithms[i]]
+                            res = algo(start, end, grid)
+                            results.append(res)
 
-                            # ✅ METRICS CALCULATED HERE (correct place)
-                            nodes_visited = len(result["visited_order"])
-                            path_length = len(result["path"])
-                            time_taken = result["time_taken"]
+                            if res:
+                                panel_metrics[i] = {
+                                    "time": res["time_taken"],
+                                    "nodes": len(res["visited_order"]),
+                                    "path": len(res["path"])
+                                }
+                                panel_visited[i] = []
+                                panel_path[i] = []
 
-                            # Animate visited
-                            for node in result["visited_order"]:
-                                visited.append(node)
-                                draw_grid(start, end, walls, visited, path,
-                                          current_algorithm, time_taken, nodes_visited, path_length)
-                                pygame.time.delay(15)
+                        # Animate
+                        max_len = max(len(r["visited_order"]) for r in results if r)
 
-                            # Animate path
-                            for node in result["path"]:
-                                path.append(node)
-                                draw_grid(start, end, walls, visited, path,
-                                          current_algorithm, time_taken, nodes_visited, path_length)
-                                pygame.time.delay(40)
+                        for step in range(max_len):
+                            for i in range(panel_count):
+                                res = results[i]
+                                if res and step < len(res["visited_order"]):
+                                    panel_visited[i].append(res["visited_order"][step])
 
-                        else:
-                            print("No path found!")
+                            draw_all_panels(start, end, walls)
+                            pygame.time.delay(10)
 
-                # Reset
-                if event.key == pygame.K_r:
+                        # Final path
+                        for i in range(panel_count):
+                            if results[i]:
+                                panel_path[i] = results[i]["path"]
+
+                # RESET
+                elif event.key == pygame.K_r:
                     start = None
                     end = None
                     walls.clear()
-                    visited.clear()
-                    path.clear()
 
-                    # Reset metrics
-                    time_taken = None
-                    nodes_visited = None
-                    path_length = None
+                    for i in range(3):
+                        panel_visited[i].clear()
+                        panel_path[i].clear()
+                        panel_metrics[i] = None
 
         pygame.display.update()
 
